@@ -1,12 +1,12 @@
 // 配置文件
 module.exports = {
     // 基础定时发送功能配置项（必填项）
-    NAME: 'Leo_chen', //女朋友备注姓名
-    NICKNAME: 'Leo_chen', //女朋友昵称
-    MEMORIAL_DAY: '2015/04/18', //你和女朋友的纪念日
-    CITY: 'shanghai', //女朋友所在城市
-    LOCATION: "pudong-new-district", //女朋友所在区（可以访问墨迹天气网站后，查询区的英文拼写）
-    SENDDATE: '0 06 8 * * *', //定时发送时间 每天8点06分0秒发送，规则见 /schedule/index.js
+    NAME: '英', //女朋友备注姓名
+    NICKNAME: 'Eva', //女朋友昵称
+    MEMORIAL_DAY: '2015/11/14', //你和女朋友的纪念日
+    CITY: 'guangxi', //女朋友所在城市
+    LOCATION: "nanning", //女朋友所在区（可以访问墨迹天气网站后，查询区的英文拼写）
+    SENDDATE: '0 0 9 * * *', //定时发送时间 每天8点06分0秒发送，规则见 /schedule/index.js
     ONE: 'http://wufazhuce.com/', ////ONE的web版网站
     MOJI_HOST: 'https://tianqi.moji.com/weather/china/', //中国墨迹天气url
 

@@ -21,5 +21,8 @@
         "qrcode-terminal": "^0.12.0",
         "superagent": "^4.1.0",
         "wechaty": "^0.27.16"
+    },
+    "dependencies": {
+        "express": "^4.17.1"
     }
 }

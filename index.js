@@ -1,25 +1,114 @@
-/**
- * WechatBot
- *  - https://github.com/gengchen528/wechatBot
- */
 const { Wechaty, Friendship } = require('wechaty')
 const schedule = require('./schedule/index')
-const config = require('./config/index')
 const untils = require('./untils/index')
 const superagent = require('./superagent/index')
+const fs = require('fs')
+const express = require('express')
+const bodyParser = require('body-parser')
 
 // 延时函数，防止检测出类似机器人行为操作
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-//  二维码生成
-function onScan(qrcode, status) {
-    require('qrcode-terminal').generate(qrcode) // 在console端显示二维码
-    const qrcodeImageUrl = [
-        'https://api.qrserver.com/v1/create-qr-code/?data=',
-        encodeURIComponent(qrcode),
-    ].join('')
-    console.log(qrcodeImageUrl)
+
+const app = express()
+
+app.use(express.static('static'))
+app.use(bodyParser.urlencoded({ extended: false }))
+
+app.get('/', (req, res) => {
+    fs.readFile('./static/index.html','utf-8', (err,data) => {
+        if(err){
+            throw err ;
+        }
+        res.send(data)
+    })
+})
+
+const init = {
+    // 基础定时发送功能配置项（必填项）
+    NAME: '英', //女朋友备注姓名
+    NICKNAME: 'Eva', //女朋友昵称
+    MEMORIAL_DAY: '2015/11/14', //你和女朋友的纪念日
+    CITY: 'guangxi', //女朋友所在城市
+    LOCATION: "nanning", //女朋友所在区（可以访问墨迹天气网站后，查询区的英文拼写）
+    SENDDATE: '0 0 9 * * *', //定时发送时间 每天8点06分0秒发送，规则见 /schedule/index.js
+    ONE: 'http://wufazhuce.com/', ////ONE的web版网站
+    MOJI_HOST: 'https://tianqi.moji.com/weather/china/', //中国墨迹天气url
+
+    //高级功能配置项（非必填项）
+    AUTOREPLY: false, //自动聊天功能 默认关闭
+    AUTOREPLYPERSON: '指定好友昵称', //指定好友开启机器人聊天功能   指定好友的昵称
+    AIBOTAPI: 'http://api.tianapi.com/txapi/robot/', //天行机器人API 注册地址https://www.tianapi.com/signup.html?source=474284281
+    APIKEY: '762be789103e1ae7b65573f8d4fc0df6', //天行机器人apikey，这里奉献上我自己的key，还是建议大家自己申请一下
 }
+
+app.post('/submit', (req, res) => {
+    console.log(121212)
+    let parms = {}
+    Object.keys(req.body).forEach(key => {
+        if(req.body[key] !== ""){
+            parms[key] = req.body[key]
+        }
+    })
+    const config = Object.assign(init, parms)
+
+    const bot = new Wechaty({ name: 'WechatEveryDay' })
+
+    bot.on('scan', (qrcode, status) => {
+        require('qrcode-terminal').generate(qrcode) // 在console端显示二维码
+        const qrcodeImageUrl = [
+            'https://api.qrserver.com/v1/create-qr-code/?data=',
+            encodeURIComponent(qrcode),
+        ].join('')
+        
+        res.send({
+            url: qrcodeImageUrl
+        })
+        
+        console.log(qrcodeImageUrl)
+    })
+    bot.on('login', async (user) => {
+        console.log(`贴心小助理${user}登录了`)
+        if (config.AUTOREPLY) {
+            console.log(`已开启机器人自动聊天模式`)
+        }
+        // 登陆后创建定时任务
+
+        console.log(`已经设定每日说任务`)
+        schedule.setSchedule(config.SENDDATE, async() => {
+            console.log('你的贴心小助理开始工作啦！')
+            let logMsg
+            let contact = await bot.Contact.find({ name: config.NICKNAME }) || await bot.Contact.find({ alias: config.NAME }) // 获取你要发送的联系人
+            let one = await superagent.getOne() //获取每日一句
+            let weather = await superagent.getWeather() //获取天气信息
+            let today = await untils.formatDate(new Date()) //获取今天的日期
+            let memorialDay = untils.getDay(config.MEMORIAL_DAY) //获取纪念日天数
+            let str = today + '<br>我们在一起的第' + memorialDay + '天<br>' + '<br>元气满满的一天开始啦,要开心噢^_^<br>' +
+                '<br>今日天气<br>' + weather.weatherTips + '<br>' + weather.todayWeather + '<br>每日一句:<br>' + one + '<br><br>' + '————————最爱你的我'
+            try {
+                logMsg = str
+                await delay(2000)
+                await contact.say(str) // 发送消息
+            } catch (e) {
+                logMsg = e.message
+            }
+            console.log(logMsg)
+        })
+    })
+    bot.on('logout', onLogout)
+    bot.on('message', onMessage)
+
+    bot.start()
+        .then(() => console.log('开始登陆微信'))
+        .catch(e => console.error(e))
+
+       
+})
+
+app.listen(9001)
+
+//  二维码生成
+
 
 // 登录
 async function onLogin(user) {
@@ -28,7 +117,7 @@ async function onLogin(user) {
         console.log(`已开启机器人自动聊天模式`)
     }
     // 登陆后创建定时任务
-    await initDay()
+    await initDay(console)
 }
 
 //登出
@@ -64,39 +153,3 @@ async function onMessage(msg) {
 
 }
 
-// 创建微信每日说定时任务
-async function initDay() {
-    console.log(`已经设定每日说任务`)
-    schedule.setSchedule(config.SENDDATE, async() => {
-        console.log('你的贴心小助理开始工作啦！')
-        let logMsg
-        let contact = await bot.Contact.find({ name: config.NICKNAME }) || await bot.Contact.find({ alias: config.NAME }) // 获取你要发送的联系人
-        let one = await superagent.getOne() //获取每日一句
-        let weather = await superagent.getWeather() //获取天气信息
-        let today = await untils.formatDate(new Date()) //获取今天的日期
-        let memorialDay = untils.getDay(config.MEMORIAL_DAY) //获取纪念日天数
-        let str = today + '<br>我们在一起的第' + memorialDay + '天<br>' + '<br>元气满满的一天开始啦,要开心噢^_^<br>' +
-            '<br>今日天气<br>' + weather.weatherTips + '<br>' + weather.todayWeather + '<br>每日一句:<br>' + one + '<br><br>' + '————————最爱你的我'
-        try {
-            logMsg = str
-            await delay(2000)
-            await contact.say(str) // 发送消息
-        } catch (e) {
-            logMsg = e.message
-        }
-        console.log(logMsg)
-    })
-}
-
-
-const bot = new Wechaty({ name: 'WechatEveryDay' })
-
-bot.on('scan', onScan)
-bot.on('login', onLogin)
-bot.on('logout', onLogout)
-bot.on('message', onMessage)
-
-
-bot.start()
-    .then(() => console.log('开始登陆微信'))
-    .catch(e => console.error(e))
